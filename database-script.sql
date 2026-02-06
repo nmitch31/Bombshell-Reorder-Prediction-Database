@@ -55,3 +55,13 @@ SELECT
         AS predicted_next_order_date
 
 FROM analytics.customer_reorder_stats;
+
+
+ALTER TABLE analytics.customer_reorder_predictions
+ADD COLUMN days_overdue numeric;
+
+UPDATE analytics.customer_reorder_predictions
+SET days_overdue =
+    EXTRACT(
+        EPOCH FROM (CURRENT_DATE - predicted_next_order_date)
+    ) / 86400;
