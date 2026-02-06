@@ -58,10 +58,17 @@ FROM analytics.customer_reorder_stats;
 
 
 ALTER TABLE analytics.customer_reorder_predictions
-ADD COLUMN days_overdue numeric;
+ADD COLUMN days_overdue INT,
+ADD COLUMN customer_status TEXT;
+
 
 UPDATE analytics.customer_reorder_predictions
-SET days_overdue =
-    EXTRACT(
-        EPOCH FROM (CURRENT_DATE - predicted_next_order_date)
-    ) / 86400;
+SET
+    days_overdue = CURRENT_DATE - predicted_next_order_date::date,
+    customer_status = CASE
+        WHEN CURRENT_DATE <= predicted_next_order_date::date THEN 'Active'
+        WHEN (CURRENT_DATE - predicted_next_order_date::date) BETWEEN 1 AND 90 THEN 'Slightly Overdue'
+        WHEN (CURRENT_DATE - predicted_next_order_date::date) BETWEEN 91 AND 365 THEN 'At Risk'
+        WHEN (CURRENT_DATE - predicted_next_order_date::date) BETWEEN 366 AND 730 THEN 'Lapsed'
+        ELSE 'Dormant'
+    END;
