@@ -1,3 +1,33 @@
+CREATE TABLE analytics.orders AS
+SELECT
+    "Billing Name"        AS billing_name,
+    "Order ID"            AS order_id,
+    MIN("Created at")::timestamptz     AS order_date,
+    SUM("Subtotal")::numeric AS order_total
+FROM analytics.shopify_orders_raw
+GROUP BY
+    "Billing Name",
+    "Order ID";
+
+CREATE TABLE analytics.customer_order_facts AS
+SELECT
+    billing_name,
+    order_id,
+    order_date,
+    order_total,
+
+    order_date
+      - LAG(order_date) OVER (
+            PARTITION BY billing_name
+            ORDER BY order_date
+        ) AS time_since_last_order
+
+FROM analytics.orders
+ORDER BY
+    billing_name,
+    order_date;
+
+
 --Code below rebuilds reorder stats table with capped gaps at 365 days. Excludes long gaps from cadence calculation but does not delete them from data
 --Keeps all customers, prevents 2-4 year gaps from poisoning averages, preserves max_gap_days for churn / reactivation logic
 
