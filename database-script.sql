@@ -5,6 +5,7 @@ SELECT
     MIN("Created at")::timestamptz     AS order_date,
     SUM("Subtotal")::numeric AS order_total
 FROM analytics.shopify_orders_raw
+WHERE "Fulfillment Status" = 'fulfilled'
 GROUP BY
     "Billing Name",
     "Order ID";
