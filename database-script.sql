@@ -1,21 +1,25 @@
+DROP TABLE IF EXISTS analytics.orders;
+
 CREATE TABLE analytics.orders AS
 SELECT
     "Billing Name"        AS billing_name,
-    "Order ID"            AS order_id,
-    MIN("Created at")::timestamptz     AS order_date,
+    COUNT (distinct "Order ID")    AS orders_that_day,
+    DATE("Created at") AS order_date,
     SUM("Subtotal")::numeric AS order_total
 FROM analytics.shopify_orders_raw
-WHERE "Fulfillment Status" = 'fulfilled'
+WHERE LOWER("Fulfillment Status") = 'fulfilled'
 GROUP BY
     "Billing Name",
-    "Order ID";
+    DATE("Created at");
+
+DROP TABLE IF EXISTS analytics.customer_order_facts;
 
 CREATE TABLE analytics.customer_order_facts AS
 SELECT
     billing_name,
-    order_id,
     order_date,
     order_total,
+    orders_that_day,
 
     order_date
       - LAG(order_date) OVER (
@@ -37,25 +41,17 @@ DROP TABLE IF EXISTS analytics.customer_reorder_stats_v2;
 CREATE TABLE analytics.customer_reorder_stats_v2 AS
 SELECT
     billing_name,
+    COUNT(time_since_last_order) AS reorder_count,
 
-    COUNT(*) - 1 AS reorder_count,
-
-    AVG(
-        EXTRACT(EPOCH FROM time_since_last_order) / 86400
-    ) FILTER (
-        WHERE EXTRACT(EPOCH FROM time_since_last_order) / 86400 <= 365
-    ) AS avg_days_between_orders,
+    AVG(time_since_last_order) AS avg_days_between_orders,
 
     MAX(order_date) AS last_order_date,
 
     MIN(order_date) AS first_order_date,
 
-    MAX(
-        EXTRACT(EPOCH FROM time_since_last_order) / 86400
-    ) AS max_gap_days
+    MAX(time_since_last_order) AS max_gap_days
 
 FROM analytics.customer_order_facts
-WHERE time_since_last_order IS NOT NULL
 GROUP BY billing_name;
 
 --Create prediction table with eligibility rules
